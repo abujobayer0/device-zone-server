@@ -210,6 +210,15 @@ async function run() {
 
     app.get("/products/recomended", async (req, res) => {
       const type = req.query.type;
+      const collection = await productCollection
+        .find({ type: type })
+        .limit(6)
+        .toArray();
+      res.send(collection);
+    });
+    app.get("/products/type", async (req, res) => {
+      const type = req.query.type;
+
       const collection = await productCollection.find({ type: type }).toArray();
       res.send(collection);
     });
