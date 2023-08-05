@@ -91,17 +91,19 @@ async function run() {
       res.send(result);
     });
     app.get("/review", async (req, res) => {
-      const { email, date, productId, sellerEmail, sellerId, review } =
-        req.query;
+      const { email, productId, sellerEmail, sellerId, review } = req.query;
       const query = {
         customerEmail: email,
         productId: productId,
         review: review,
         sellerEmail: sellerEmail,
         sellerId: sellerId,
-        date: date,
       };
       const result = await reviewCollection.find(query).toArray();
+      res.send(result);
+    });
+    app.get("/reviews", async (req, res) => {
+      const result = await reviewCollection.find().toArray();
       res.send(result);
     });
     app.post("/create/product", async (req, res) => {
