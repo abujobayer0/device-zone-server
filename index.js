@@ -91,11 +91,10 @@ async function run() {
       res.send(result);
     });
     app.get("/review", async (req, res) => {
-      const { email, productId, sellerEmail, sellerId, review } = req.query;
+      const { email, productId, sellerEmail, sellerId } = req.query;
       const query = {
         customerEmail: email,
         productId: productId,
-        review: review,
         sellerEmail: sellerEmail,
         sellerId: sellerId,
       };
