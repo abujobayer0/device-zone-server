@@ -24,6 +24,7 @@ const client = new MongoClient(uri, {
 });
 const userCollection = client.db("main").collection("user-collection");
 const productCollection = client.db("main").collection("product-collection");
+const reviewCollection = client.db("main").collection("product-reviews");
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -76,6 +77,32 @@ async function run() {
         console.error("Error inserting user into the database:", error);
         res.status(500).send("Server error");
       }
+    });
+    app.post("/review", async (req, res) => {
+      const { email, productId, sellerEmail, sellerId, review } = req.body;
+      const result = await reviewCollection.insertOne({
+        customerEmail: email,
+        productId: productId,
+        review: review,
+        sellerEmail: sellerEmail,
+        sellerId: sellerId,
+        data: new Date(),
+      });
+      res.send(result);
+    });
+    app.get("/review", async (req, res) => {
+      const { email, date, productId, sellerEmail, sellerId, review } =
+        req.query;
+      const query = {
+        customerEmail: email,
+        productId: productId,
+        review: review,
+        sellerEmail: sellerEmail,
+        sellerId: sellerId,
+        date: date,
+      };
+      const result = await reviewCollection.find(query).toArray();
+      res.send(result);
     });
     app.post("/create/product", async (req, res) => {
       const {
@@ -222,6 +249,70 @@ async function run() {
       const collection = await productCollection.find({ type: type }).toArray();
       res.send(collection);
     });
+    // function buildSortQuery(sort) {
+    //   const sortQuery = {};
+    //   if (sort === "price_low_to_high") {
+    //     sortQuery.price = 1;
+    //   } else if (sort === "price_high_to_low") {
+    //     sortQuery.price = -1;
+    //   } else if (sort === "name_a_to_z") {
+    //     sortQuery.productName = 1;
+    //   } else if (sort === "name_z_to_a") {
+    //     sortQuery.productName = -1;
+    //   }
+    //   return sortQuery;
+    // }
+
+    // function buildFilterQuery(category, color, minPrice, maxPrice, type) {
+    //   const filterQuery = {};
+
+    //   if (category) {
+    //     filterQuery.categories = { $regex: new RegExp(category, "i") };
+    //   }
+    //   if (color) {
+    //     filterQuery.colorVariation = { $regex: new RegExp(color, "i") };
+    //   }
+    //   if (minPrice && !isNaN(minPrice)) {
+    //     filterQuery.price = { $gte: parseInt(minPrice) };
+    //   }
+    //   if (maxPrice && !isNaN(maxPrice)) {
+    //     if (filterQuery.price) {
+    //       filterQuery.price.$lte = parseInt(maxPrice);
+    //     } else {
+    //       filterQuery.price = { $lte: parseFloat(maxPrice) };
+    //     }
+    //   }
+    //   if (type) {
+    //     filterQuery.type = { $regex: new RegExp(type, "i") };
+    //   }
+    //   return filterQuery;
+    // }
+    // app.get("/products/filter", async (req, res) => {
+    //   try {
+    //     const { category, color, sort, minPrice, maxPrice, type } = req.query;
+
+    //     const filterQuery = buildFilterQuery(
+    //       category,
+    //       color,
+    //       minPrice,
+    //       maxPrice,
+    //       type
+    //     );
+    //     const sortQuery = buildSortQuery(sort);
+
+    //     console.log("query:", filterQuery);
+    //     const filteredData = await productCollection
+    //       .find(filterQuery)
+    //       .sort(sortQuery)
+    //       .toArray();
+    //     console.log("filteredData:", filteredData);
+    //     res.send(filteredData);
+    //   } catch (error) {
+    //     console.error("Error occurred:", error);
+    //     res.status(500).send("An error occurred while fetching the data.");
+    //   }
+    // });
+
     app.get("/seller/products", async (req, res) => {
       const email = req.query.email;
       const collection = await productCollection
