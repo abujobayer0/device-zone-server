@@ -10,7 +10,7 @@ const port = 7000;
 app.use(cors());
 app.use(express.json());
 app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri =
   "mongodb+srv://munna:I5l3XBblNYwiI1bt@cluster0.dpihtss.mongodb.net/?retryWrites=true&w=majority";
 
@@ -88,6 +88,7 @@ async function run() {
         discountedPrice,
         categories,
         seller,
+        type,
       } = req.body;
 
       const result = await productCollection.insertOne({
@@ -100,6 +101,7 @@ async function run() {
         discountedPrice: discountedPrice,
         categories: categories,
         seller: seller,
+        type: type,
       });
       res.send(result);
     });
@@ -125,10 +127,21 @@ async function run() {
         .toArray();
       res.send(collection);
     });
+    app.delete("/delete/product/:id", async (req, res) => {
+      const { id } = req.params;
+      const query = { _id: new ObjectId(id) };
+      const result = productCollection.deleteOne(query);
+      res.send(result);
+    });
     app.get("/products/hotdeal", async (req, res) => {
       const collection = await productCollection
         .find({ categories: "Hot Deal" })
         .toArray();
+      res.send(collection);
+    });
+    app.get("/products/recomended", async (req, res) => {
+      const type = req.query.type;
+      const collection = await productCollection.find({ type: type }).toArray();
       res.send(collection);
     });
     app.get("/seller/products", async (req, res) => {
