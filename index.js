@@ -133,12 +133,81 @@ async function run() {
       const result = productCollection.deleteOne(query);
       res.send(result);
     });
+
     app.get("/products/hotdeal", async (req, res) => {
       const collection = await productCollection
         .find({ categories: "Hot Deal" })
         .toArray();
       res.send(collection);
     });
+    app.get("/products/search", async (req, res) => {
+      const query = req.query.query;
+      const regex = new RegExp(query, "i");
+      const collection = await productCollection
+        .find({
+          productName: { $regex: regex },
+        })
+        .toArray();
+      res.send(collection);
+    });
+    app.put("/product/update/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const query = { _id: new ObjectId(id) };
+        const existingProduct = await productCollection.findOne(query);
+
+        if (!existingProduct) {
+          return res.status(404).json({ error: "Product not found." });
+        }
+
+        const updateFields = {};
+        const {
+          productName,
+          description,
+          price,
+          discountPercent,
+          discountedPrice,
+          colorVariation,
+        } = req.body;
+
+        if (productName) {
+          updateFields.productName = productName;
+        }
+
+        if (description) {
+          updateFields.description = description;
+        }
+
+        if (price) {
+          updateFields.price = price;
+        }
+
+        if (discountPercent) {
+          updateFields.discountPercent = discountPercent;
+        }
+
+        if (discountedPrice) {
+          updateFields.discountedPrice = discountedPrice;
+        }
+
+        if (colorVariation) {
+          updateFields.colorVariation = colorVariation;
+        }
+
+        const result = await productCollection.updateOne(query, {
+          $set: updateFields,
+        });
+
+        if (result.modifiedCount > 0) {
+          return res.json({ message: "Product updated successfully." });
+        } else {
+          return res.json({ message: "No changes made to the product." });
+        }
+      } catch (error) {
+        return res.status(500).json({ error: "Internal server error." });
+      }
+    });
+
     app.get("/products/recomended", async (req, res) => {
       const type = req.query.type;
       const collection = await productCollection.find({ type: type }).toArray();
