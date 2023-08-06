@@ -25,6 +25,7 @@ const client = new MongoClient(uri, {
 const userCollection = client.db("main").collection("user-collection");
 const productCollection = client.db("main").collection("product-collection");
 const reviewCollection = client.db("main").collection("product-reviews");
+const cartCollection = client.db("main").collection("product-added-carts");
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -78,6 +79,27 @@ async function run() {
         res.status(500).send("Server error");
       }
     });
+    app.post("/add/cart", async (req, res) => {
+      const { email, productId } = req.body;
+      const result = await cartCollection.insertOne({
+        customerEmail: email,
+        productId: productId,
+        data: new Date(),
+      });
+      res.send(result);
+    });
+    app.get("/cart", async (req, res) => {
+      const { email } = req.query;
+      const usersWhoAddedCart = await cartCollection.find({
+        email: email,
+      });
+      const userCartIds = usersWhoAddedCart.map((i) => i.productId);
+      const result = await productCollection
+        .find({ _id: { $in: { userCartIds } } })
+        .toArray();
+      res.send(result);
+    });
+
     app.post("/review", async (req, res) => {
       const { email, productId, sellerEmail, sellerId, review } = req.body;
       const result = await reviewCollection.insertOne({
