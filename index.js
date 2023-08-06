@@ -81,22 +81,71 @@ async function run() {
     });
     app.post("/add/cart", async (req, res) => {
       const { email, productId } = req.body;
-      const result = await cartCollection.insertOne({
-        customerEmail: email,
-        productId: productId,
-        data: new Date(),
-      });
+      const isProductExits = await cartCollection
+        .find({ customerEmail: email, productId: productId })
+        .toArray();
+      if (isProductExits.length > 0) {
+        res.json({ message: "Product Already Added To Cart" });
+        return;
+      } else {
+        const result = await cartCollection.insertOne({
+          customerEmail: email,
+          productId: productId,
+          data: new Date(),
+        });
+        console.log(email, productId);
+        res.send(result);
+      }
+    });
+    cartCollection.de;
+    app.get("/cart", async (req, res) => {
+      try {
+        const email = req.query.email;
+        const usersWhoAddedCart = await cartCollection
+          .find({
+            customerEmail: email,
+          })
+          .toArray();
+        const userCartIds = await usersWhoAddedCart.map((i) => i.productId);
+
+        const result = await productCollection
+          .find({ _id: { $in: userCartIds.map((id) => new ObjectId(id)) } })
+          .sort({ data: 1 })
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error occurred:", error);
+        res.status(500).send("An error occurred while fetching the data.");
+      }
+    });
+    app.get("/cart/wishlist", async (req, res) => {
+      const data = req.query.data;
+      console.log(data);
+
+      if (!data) {
+        res.send([]);
+        return;
+      }
+
+      const dataArray = data.split(",");
+      const result = await productCollection
+        .find({
+          _id: { $in: dataArray.map((item) => new ObjectId(item)) },
+        })
+        .toArray();
       res.send(result);
     });
-    app.get("/cart", async (req, res) => {
-      const { email } = req.query;
-      const usersWhoAddedCart = await cartCollection.find({
-        email: email,
-      });
-      const userCartIds = usersWhoAddedCart.map((i) => i.productId);
-      const result = await productCollection
-        .find({ _id: { $in: { userCartIds } } })
-        .toArray();
+    app.delete("/cart/product/delete", async (req, res) => {
+      const email = req.query.email;
+      const id = req.query.id;
+      console.log(id, email);
+      const query = { productId: id, customerEmail: email };
+      const result = await cartCollection.deleteOne(query);
+      res.send(result);
+    });
+    app.get("/cart/added", async (req, res) => {
+      const result = await cartCollection.find().toArray();
       res.send(result);
     });
 
