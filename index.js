@@ -26,6 +26,7 @@ const userCollection = client.db("main").collection("user-collection");
 const productCollection = client.db("main").collection("product-collection");
 const reviewCollection = client.db("main").collection("product-reviews");
 const cartCollection = client.db("main").collection("product-added-carts");
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -306,7 +307,53 @@ async function run() {
         return res.status(500).json({ error: "Internal server error." });
       }
     });
+    app.get("/products/filter", async (req, res) => {
+      const { category, color, sort, minPrice, maxPrice, type } = req.query;
+      console.log(category, color, sort, minPrice, maxPrice, type);
 
+      const sortQuery =
+        sort === "name_a_to_z"
+          ? { productName: 1 }
+          : sort === "name_z_to_a"
+          ? { productName: -1 }
+          : sort === "price_low_to_high"
+          ? { price: 1 }
+          : sort === "price_high_to_low"
+          ? { price: -1 }
+          : {};
+
+      if (sort !== "") {
+        const result = await productCollection
+          .aggregate([
+            {
+              $match: {
+                categories: new RegExp(category, "i"),
+                colorVariation: new RegExp(color, "i"),
+                type: new RegExp(type, "i"),
+                price: { $gte: parseInt(minPrice), $lte: parseInt(maxPrice) },
+              },
+            },
+          ])
+          .sort(sortQuery)
+          .toArray();
+        res.send(result);
+      } else {
+        const result = await productCollection
+          .aggregate([
+            {
+              $match: {
+                categories: new RegExp(category, "i"),
+                colorVariation: new RegExp(color, "i"),
+                type: new RegExp(type, "i"),
+                price: { $gte: parseInt(minPrice), $lte: parseInt(maxPrice) },
+              },
+            },
+          ])
+
+          .toArray();
+        res.send(result);
+      }
+    });
     app.get("/products/recomended", async (req, res) => {
       const type = req.query.type;
       const collection = await productCollection
@@ -321,69 +368,6 @@ async function run() {
       const collection = await productCollection.find({ type: type }).toArray();
       res.send(collection);
     });
-    // function buildSortQuery(sort) {
-    //   const sortQuery = {};
-    //   if (sort === "price_low_to_high") {
-    //     sortQuery.price = 1;
-    //   } else if (sort === "price_high_to_low") {
-    //     sortQuery.price = -1;
-    //   } else if (sort === "name_a_to_z") {
-    //     sortQuery.productName = 1;
-    //   } else if (sort === "name_z_to_a") {
-    //     sortQuery.productName = -1;
-    //   }
-    //   return sortQuery;
-    // }
-
-    // function buildFilterQuery(category, color, minPrice, maxPrice, type) {
-    //   const filterQuery = {};
-
-    //   if (category) {
-    //     filterQuery.categories = { $regex: new RegExp(category, "i") };
-    //   }
-    //   if (color) {
-    //     filterQuery.colorVariation = { $regex: new RegExp(color, "i") };
-    //   }
-    //   if (minPrice && !isNaN(minPrice)) {
-    //     filterQuery.price = { $gte: parseInt(minPrice) };
-    //   }
-    //   if (maxPrice && !isNaN(maxPrice)) {
-    //     if (filterQuery.price) {
-    //       filterQuery.price.$lte = parseInt(maxPrice);
-    //     } else {
-    //       filterQuery.price = { $lte: parseFloat(maxPrice) };
-    //     }
-    //   }
-    //   if (type) {
-    //     filterQuery.type = { $regex: new RegExp(type, "i") };
-    //   }
-    //   return filterQuery;
-    // }
-    // app.get("/products/filter", async (req, res) => {
-    //   try {
-    //     const { category, color, sort, minPrice, maxPrice, type } = req.query;
-
-    //     const filterQuery = buildFilterQuery(
-    //       category,
-    //       color,
-    //       minPrice,
-    //       maxPrice,
-    //       type
-    //     );
-    //     const sortQuery = buildSortQuery(sort);
-
-    //     console.log("query:", filterQuery);
-    //     const filteredData = await productCollection
-    //       .find(filterQuery)
-    //       .sort(sortQuery)
-    //       .toArray();
-    //     console.log("filteredData:", filteredData);
-    //     res.send(filteredData);
-    //   } catch (error) {
-    //     console.error("Error occurred:", error);
-    //     res.status(500).send("An error occurred while fetching the data.");
-    //   }
-    // });
 
     app.get("/seller/products", async (req, res) => {
       const email = req.query.email;
@@ -398,8 +382,6 @@ async function run() {
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
   } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
   }
 }
 run().catch(console.dir);
