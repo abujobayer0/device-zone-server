@@ -31,24 +31,24 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
-    const generateToken = (userData) => {
-      return jwt.sign(userData, secretKey, { expiresIn: "1h" }); // Token will expire in 1 hour
-    };
-    // Middleware to verify JWT
-    const verifyToken = (req, res, next) => {
-      const token = req.headers["authorization"];
-      if (!token) {
-        return res.status(403).send("Access denied. No token provided.");
-      }
+    // const generateToken = (userData) => {
+    //   return jwt.sign(userData, secretKey, { expiresIn: "1h" }); // Token will expire in 1 hour
+    // };
+    // // Middleware to verify JWT
+    // const verifyToken = (req, res, next) => {
+    //   const token = req.headers["authorization"];
+    //   if (!token) {
+    //     return res.status(403).send("Access denied. No token provided.");
+    //   }
 
-      jwt.verify(token, secretKey, (err, decoded) => {
-        if (err) {
-          return res.status(401).send("Invalid token.");
-        }
-        req.user = decoded;
-        next();
-      });
-    };
+    //   jwt.verify(token, secretKey, (err, decoded) => {
+    //     if (err) {
+    //       return res.status(401).send("Invalid token.");
+    //     }
+    //     req.user = decoded;
+    //     next();
+    //   });
+    // };
     app.get("/", (req, res) => {
       res.send("Hello, world!");
     });
@@ -80,13 +80,7 @@ async function run() {
         res.status(500).send("Server error");
       }
     });
-    app.get("/products/:id", async (req, res) => {
-      const { id } = req.params;
-      const query = { _id: new ObjectId(id) };
-      const result = await productCollection.find(query).toArray();
-      console.log(id, result);
-      res.send(result);
-    });
+
     app.post("/add/cart", async (req, res) => {
       const { email, productId } = req.body;
       const isProductExits = await cartCollection
