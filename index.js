@@ -9,7 +9,7 @@ const port = 7000;
 // Enable CORS
 app.use(cors());
 app.use(express.json());
-app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
+
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri =
   "mongodb+srv://munna:I5l3XBblNYwiI1bt@cluster0.dpihtss.mongodb.net/?retryWrites=true&w=majority";
@@ -80,6 +80,13 @@ async function run() {
         res.status(500).send("Server error");
       }
     });
+    app.get("/products/:id", async (req, res) => {
+      const { id } = req.params;
+      const query = { _id: new ObjectId(id) };
+      const result = await productCollection.find(query).toArray();
+      console.log(id, result);
+      res.send(result);
+    });
     app.post("/add/cart", async (req, res) => {
       const { email, productId } = req.body;
       const isProductExits = await cartCollection
@@ -122,7 +129,6 @@ async function run() {
     });
     app.get("/cart/wishlist", async (req, res) => {
       const data = req.query.data;
-      console.log(data);
 
       if (!data) {
         res.send([]);
@@ -130,6 +136,7 @@ async function run() {
       }
 
       const dataArray = data.split(",");
+      console.log(dataArray);
       const result = await productCollection
         .find({
           _id: { $in: dataArray.map((item) => new ObjectId(item)) },
@@ -215,13 +222,20 @@ async function run() {
       const collection = await productCollection.find().toArray();
       res.send(collection);
     });
-    app.get("/products/featured", async (req, res) => {
-      const collection = await productCollection
-        .find({ categories: "Featured" })
-        .toArray();
-      res.send(collection);
+    app.get("/featured", async (req, res) => {
+      try {
+        const collection = await productCollection
+          .find({ categories: "Featured" })
+          .toArray();
+        res.send(collection);
+      } catch (err) {
+        console.log(err);
+      } finally {
+        console.log("success");
+      }
+      console.log("api hitted");
     });
-    app.get("/products/newarrival", async (req, res) => {
+    app.get("/newarrival", async (req, res) => {
       const collection = await productCollection
         .find({ categories: "New Arrival" })
         .toArray();
@@ -234,7 +248,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/products/hotdeal", async (req, res) => {
+    app.get("/hotdeal", async (req, res) => {
       const collection = await productCollection
         .find({ categories: "Hot Deal" })
         .toArray();
@@ -307,7 +321,7 @@ async function run() {
         return res.status(500).json({ error: "Internal server error." });
       }
     });
-    app.get("/products/filter", async (req, res) => {
+    app.get("/filter", async (req, res) => {
       const { category, color, sort, minPrice, maxPrice, type } = req.query;
       console.log(category, color, sort, minPrice, maxPrice, type);
 
