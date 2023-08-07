@@ -26,7 +26,7 @@ const userCollection = client.db("main").collection("user-collection");
 const productCollection = client.db("main").collection("product-collection");
 const reviewCollection = client.db("main").collection("product-reviews");
 const cartCollection = client.db("main").collection("product-added-carts");
-
+const orderCollection = client.db("main").collection("orders");
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -65,8 +65,25 @@ async function run() {
       };
 
       try {
-        const checkDuplicate = await userCollection.findOne({ email: email });
-
+        const orderItems = products.map((product) => {
+          return {
+            product_id: product._id,
+            seller_email: product.seller.email,
+            seller_name: product.seller.userName,
+            seller_id: product.seller._id,
+          };
+        });
+        const checkDuplicate = await orderCollection.findOne({
+          useremail: email,
+          products: {
+            $elemMatch: {
+              $or: orderItems.map((item) => ({
+                product_id: item.product_id,
+                seller_email: item.seller_email,
+              })),
+            },
+          },
+        });
         if (checkDuplicate) {
           const errorMessage = "User already exists";
           res.status(400).send(errorMessage);
@@ -80,7 +97,83 @@ async function run() {
         res.status(500).send("Server error");
       }
     });
+    //todo
+    app.post("/order/product", async (req, res) => {
+      const { products } = req.body;
+      const email = req.query.email;
 
+      try {
+        for (const product of products) {
+          const orderItem = {
+            useremail: email,
+            product_id: product._id,
+            seller_email: product.seller.email,
+            seller_name: product.seller.userName,
+            seller_id: product.seller._id,
+            status: "pending",
+            productName: product.productName,
+            price: product.price,
+            discountPercent: product.discountedPrice,
+            selectedImages: product.selectedImages,
+            discountedPrice: product.discountedPrice,
+          };
+
+          const checkDuplicate = await orderCollection.findOne({
+            useremail: email,
+            product_id: product._id,
+          });
+
+          if (checkDuplicate) {
+            const errorMessage = "Order already exists";
+            res.status(400).send(errorMessage);
+            console.log(errorMessage);
+          } else {
+            const result = await orderCollection.insertOne(orderItem);
+            console.log(orderItem);
+            console.log("Order inserted successfully");
+          }
+        }
+        res.send("All orders inserted successfully");
+      } catch (error) {
+        console.error("Error inserting orders into the database:", error);
+        res.status(500).send("Server error");
+      }
+    });
+    app.get("/orders", async (req, res) => {
+      const { email } = req.query;
+      const query = { customeremail: email };
+      const orders = await orderCollection.find(query).toArray();
+
+      res.send(orders);
+    });
+    app.get("/orders/manage", async (req, res) => {
+      const { email } = req.query;
+      const query = { seller_email: email };
+      const orders = await orderCollection.find(query).toArray();
+
+      res.send(orders);
+    });
+    app.post("/manage/status", async (req, res) => {
+      const { value, id } = req.body;
+
+      try {
+        const orderId = new ObjectId(id);
+        const updateResult = await orderCollection.updateOne(
+          { _id: orderId },
+          { $set: { status: value } }
+        );
+
+        if (updateResult.modifiedCount > 0) {
+          res.send({ success: true, message: "Status updated successfully." });
+        } else {
+          res.send({ success: false, message: "Failed to update status." });
+        }
+      } catch (error) {
+        console.error("Error occurred:", error);
+        res.status(500).send("An error occurred while updating the status.");
+      }
+    });
+    ////to do
     app.post("/add/cart", async (req, res) => {
       const { email, productId } = req.body;
       const isProductExits = await cartCollection
@@ -99,7 +192,6 @@ async function run() {
         res.send(result);
       }
     });
-    cartCollection.de;
     app.get("/cart", async (req, res) => {
       try {
         const email = req.query.email;
@@ -108,10 +200,33 @@ async function run() {
             customerEmail: email,
           })
           .toArray();
-        const userCartIds = await usersWhoAddedCart.map((i) => i.productId);
+
+        const userCartIds = usersWhoAddedCart.map(
+          (cartItem) => cartItem.productId
+        );
+
+        const orderProducts = await orderCollection
+          .find({
+            useremail: email,
+            products: {
+              $elemMatch: {
+                product_id: { $in: userCartIds },
+              },
+            },
+          })
+          .toArray();
+
+        const orderedProductIds = orderProducts.reduce((acc, order) => {
+          acc.push(...order.products.map((product) => product.product_id));
+          return acc;
+        }, []);
+
+        const cartProductIds = userCartIds.filter(
+          (cartProductId) => !orderedProductIds.includes(cartProductId)
+        );
 
         const result = await productCollection
-          .find({ _id: { $in: userCartIds.map((id) => new ObjectId(id)) } })
+          .find({ _id: { $in: cartProductIds.map((id) => new ObjectId(id)) } })
           .sort({ data: 1 })
           .toArray();
 
@@ -121,6 +236,7 @@ async function run() {
         res.status(500).send("An error occurred while fetching the data.");
       }
     });
+
     app.get("/cart/wishlist", async (req, res) => {
       const data = req.query.data;
 
