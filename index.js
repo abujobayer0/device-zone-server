@@ -65,25 +65,9 @@ async function run() {
       };
 
       try {
-        const orderItems = products.map((product) => {
-          return {
-            product_id: product._id,
-            seller_email: product.seller.email,
-            seller_name: product.seller.userName,
-            seller_id: product.seller._id,
-          };
-        });
-        const checkDuplicate = await orderCollection.findOne({
-          useremail: email,
-          products: {
-            $elemMatch: {
-              $or: orderItems.map((item) => ({
-                product_id: item.product_id,
-                seller_email: item.seller_email,
-              })),
-            },
-          },
-        });
+        const checkDuplicate = await userCollection
+          .find({ email: email })
+          .toArray();
         if (checkDuplicate) {
           const errorMessage = "User already exists";
           res.status(400).send(errorMessage);
@@ -103,47 +87,48 @@ async function run() {
       const email = req.query.email;
 
       try {
-        for (const product of products) {
-          const orderItem = {
-            useremail: email,
-            product_id: product._id,
-            seller_email: product.seller.email,
-            seller_name: product.seller.userName,
-            seller_id: product.seller._id,
-            status: "pending",
-            productName: product.productName,
-            price: product.price,
-            discountPercent: product.discountedPrice,
-            selectedImages: product.selectedImages,
-            discountedPrice: product.discountedPrice,
-          };
+        const orderItems = products.map((product) => ({
+          useremail: email,
+          product_id: product._id,
+          seller_email: product.seller.email,
+          seller_name: product.seller.userName,
+          seller_id: product.seller._id,
+          status: "pending",
+          productName: product.productName,
+          price: product.price,
+          discountPercent: product.discountedPrice,
+          selectedImages: product.selectedImages,
+          discountedPrice: product.discountedPrice,
+        }));
 
-          const checkDuplicate = await orderCollection.findOne({
-            useremail: email,
-            product_id: product._id,
-          });
+        const insertResult = await orderCollection.insertMany(orderItems);
+        console.log(
+          "Orders inserted successfully:",
+          insertResult.insertedCount
+        );
 
-          if (checkDuplicate) {
-            const errorMessage = "Order already exists";
-            res.status(400).send(errorMessage);
-            console.log(errorMessage);
-          } else {
-            const result = await orderCollection.insertOne(orderItem);
-            console.log(orderItem);
-            console.log("Order inserted successfully");
-          }
-        }
-        res.send("All orders inserted successfully");
+        const cartProductIds = products.map((product) => product._id);
+        const deleteResult = await cartCollection.deleteMany({
+          customerEmail: email,
+          productId: { $in: cartProductIds },
+        });
+
+        console.log("Cart items deleted:", deleteResult.deletedCount);
+
+        res.send({
+          success: true,
+          message: "Orders inserted and cart items deleted successfully.",
+        });
       } catch (error) {
-        console.error("Error inserting orders into the database:", error);
+        console.error("Error inserting orders and deleting cart items:", error);
         res.status(500).send("Server error");
       }
     });
+
     app.get("/orders", async (req, res) => {
       const { email } = req.query;
       const query = { customeremail: email };
       const orders = await orderCollection.find(query).toArray();
-
       res.send(orders);
     });
     app.get("/orders/manage", async (req, res) => {
